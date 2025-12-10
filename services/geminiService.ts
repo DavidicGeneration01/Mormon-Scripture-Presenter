@@ -6,8 +6,9 @@ const modelId = "gemini-2.5-flash";
 // Helper to safely get AI instance
 const getAIClient = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    console.warn("API Key is missing. AI features will be disabled.");
+  // If API Key is empty string (from polyfill) or undefined, return null
+  if (!apiKey || apiKey.length === 0) {
+    console.warn("API Key is missing/empty. AI features will be disabled.");
     return null;
   }
   return new GoogleGenAI({ apiKey });
@@ -16,7 +17,10 @@ const getAIClient = () => {
 // Helper function used by scriptureService
 export const searchVerse = async (query: string, version: string = 'KJV'): Promise<VerseData> => {
   const ai = getAIClient();
-  if (!ai) throw new Error("Offline Mode: API Key missing.");
+  if (!ai) {
+    // This specific error helps the user identify Vercel configuration issues
+    throw new Error("Online Search Unavailable: API Key is missing. Please configure 'API_KEY' in your Vercel Project Settings.");
+  }
 
   const prompt = `
     Find the scripture verse described by this query: "${query}".
@@ -67,7 +71,7 @@ export const searchVerse = async (query: string, version: string = 'KJV'): Promi
     throw new Error("Empty response from AI");
   } catch (error) {
     console.error("Error fetching verse:", error);
-    throw new Error("Failed to find verse. Please try a clearer reference.");
+    throw error; // Re-throw so scriptureService catches the specific message
   }
 };
 

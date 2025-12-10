@@ -195,8 +195,9 @@ const App: React.FC = () => {
       addToHistory(verse);
       fetchInsightsForVerse(verse);
 
-    } catch (error) {
-      alert("Could not find verse. Check your internet or try the Manual tab for custom entry.");
+    } catch (error: any) {
+      // Show specific error message (e.g., API Key missing vs Not Found)
+      alert(error.message || "Could not find verse. Check your internet or use Manual tab.");
     } finally {
       setIsLoading(false);
     }

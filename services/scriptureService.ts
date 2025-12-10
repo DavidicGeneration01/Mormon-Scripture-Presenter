@@ -1,7 +1,41 @@
 import { VerseData } from '../types';
 import { searchVerse as searchVerseAI } from './geminiService';
 
-// --- Local Offline Library (Scripture Mastery & Popular Verses) ---
+// --- Abbreviation Mapping ---
+const BOOK_MAP: Record<string, string> = {
+  // Bible
+  'gn': 'genesis', 'gen': 'genesis', 'genesis': 'genesis',
+  'ex': 'exodus', 'exodus': 'exodus',
+  'ps': 'psalms', 'psm': 'psalms', 'psalm': 'psalms', 'psalms': 'psalms',
+  'matt': 'matthew', 'mt': 'matthew', 'matthew': 'matthew',
+  'mk': 'mark', 'mark': 'mark',
+  'lk': 'luke', 'luke': 'luke',
+  'jh': 'john', 'jn': 'john', 'john': 'john',
+  'rom': 'romans', 'romans': 'romans',
+  '1cor': '1_corinthians',
+  'jam': 'james', 'jas': 'james', 'james': 'james',
+  
+  // Book of Mormon
+  '1ne': '1_nephi', '1_ne': '1_nephi', '1nephi': '1_nephi',
+  '2ne': '2_nephi', '2_ne': '2_nephi', '2nephi': '2_nephi',
+  'jac': 'jacob', 'jacob': 'jacob',
+  'enos': 'enos',
+  'mos': 'mosiah', 'mosiah': 'mosiah',
+  'al': 'alma', 'alma': 'alma',
+  'hel': 'helaman', 'helaman': 'helaman',
+  '3ne': '3_nephi', '3_ne': '3_nephi', '3nephi': '3_nephi',
+  '4ne': '4_nephi', '4_ne': '4_nephi', '4nephi': '4_nephi',
+  'eth': 'ether', 'ether': 'ether',
+  'moro': 'moroni', 'moroni': 'moroni',
+
+  // D&C / PGP
+  'dc': 'd&c', 'd&c': 'd&c', 'doc': 'd&c',
+  'moses': 'moses',
+  'abr': 'abraham', 'abraham': 'abraham',
+  'aof': 'articles_of_faith', 'art': 'articles_of_faith'
+};
+
+// --- Local Offline Library ---
 const OFFLINE_LIBRARY: Record<string, VerseData> = {
   // --- Book of Mormon ---
   "1_nephi_3_7": {
@@ -34,6 +68,14 @@ const OFFLINE_LIBRARY: Record<string, VerseData> = {
     book: "Mosiah",
     chapter: 2,
     verse: 17,
+    version: "Book of Mormon"
+  },
+  "alma_5_14": {
+    reference: "Alma 5:14",
+    text: "And now behold, I ask of you, my brethren of the church, have ye spiritually been born of God? Have ye received his image in your countenances? Have ye experienced this mighty change in your hearts?",
+    book: "Alma",
+    chapter: 5,
+    verse: 14,
     version: "Book of Mormon"
   },
   "alma_32_21": {
@@ -84,6 +126,22 @@ const OFFLINE_LIBRARY: Record<string, VerseData> = {
     book: "John",
     chapter: 3,
     verse: 16,
+    version: "KJV"
+  },
+  "john_5_5": {
+    reference: "John 5:5",
+    text: "And a certain man was there, which had an infirmity thirty and eight years.",
+    book: "John",
+    chapter: 5,
+    verse: 5,
+    version: "KJV"
+  },
+  "john_5_39": {
+    reference: "John 5:39",
+    text: "Search the scriptures; for in them ye think ye have eternal life: and they are they which testify of me.",
+    book: "John",
+    chapter: 5,
+    verse: 39,
     version: "KJV"
   },
   "matthew_5_14": {
@@ -188,48 +246,72 @@ const OFFLINE_LIBRARY: Record<string, VerseData> = {
   }
 };
 
-const normalizeQuery = (query: string): string => {
-  return query
-    .toLowerCase()
-    .replace(/ /g, '_')
-    .replace(/:/g, '_')
-    .replace(/\./g, '')
-    .trim();
+/**
+ * Advanced Parsing Logic
+ * Converts "jh5:5", "jh 5 5", "1ne 3:7" into standardized "book_chapter_verse" keys
+ */
+const parseQueryToKey = (query: string): string | null => {
+  const clean = query.trim().toLowerCase();
+
+  // Regex breakdown:
+  // ^(\d*)?         -> Optional leading number (e.g. "1" in "1ne")
+  // \s*             -> Optional space
+  // ([a-z&]+)       -> The book name (letters, &, etc.)
+  // \s*             -> Optional space
+  // (\d+)           -> Chapter number
+  // [:.\s]*         -> Separator (colon, dot, space)
+  // (\d+)$          -> Verse number
+  const regex = /^(\d*)?\s*([a-z&]+)\s*(\d+)[:.\s]*(\d+)$/;
+  
+  const match = clean.match(regex);
+  if (!match) return null;
+
+  // e.g. "1ne 3:7" -> match[1]="1", match[2]="ne", match[3]="3", match[4]="7"
+  // e.g. "jh5:5"   -> match[1]=undef, match[2]="jh", match[3]="5", match[4]="5"
+
+  const leadingNum = match[1] || '';
+  const bookText = match[2];
+  const chapter = match[3];
+  const verse = match[4];
+
+  // Combine leading number + text for lookup (e.g. "1" + "ne" = "1ne")
+  const rawBook = leadingNum + bookText; 
+  
+  const normalizedBook = BOOK_MAP[rawBook] || rawBook;
+
+  return `${normalizedBook}_${chapter}_${verse}`;
 };
 
 /**
  * Main Search Function
- * Strategy:
- * 1. Check Offline Library (Instant, works without internet)
- * 2. If not found, check internet connection.
- * 3. If online, try Gemini API.
- * 4. If offline and not found, throw error (User should use Manual mode).
  */
 export const findScripture = async (query: string): Promise<VerseData> => {
-  const normalizedKey = normalizeQuery(query);
-  
-  // 1. Try Exact Match (e.g., "1_nephi_3_7")
-  if (OFFLINE_LIBRARY[normalizedKey]) {
-    console.log("Found in Offline Library:", normalizedKey);
-    return OFFLINE_LIBRARY[normalizedKey];
+  // 1. Try to parse specific reference for Offline Library
+  const offlineKey = parseQueryToKey(query);
+  console.log(`Query: "${query}" parsed to Key: "${offlineKey}"`);
+
+  if (offlineKey && OFFLINE_LIBRARY[offlineKey]) {
+    console.log("Found in Offline Library (Exact Match)");
+    return OFFLINE_LIBRARY[offlineKey];
   }
 
-  // 1b. Try Partial Match (e.g. user typed "1 nephi 3 7")
-  // Simple heuristic: find key that contains the numbers
-  const libraryKeys = Object.keys(OFFLINE_LIBRARY);
-  const potentialMatch = libraryKeys.find(key => key === normalizedKey);
-  if (potentialMatch) return OFFLINE_LIBRARY[potentialMatch];
+  // 2. Fallback: Simple fuzzy check for offline (if regex failed but key exists closely)
+  const simpleKey = query.toLowerCase().replace(/ /g, '_').replace(/:/g, '_').replace(/\./g, '');
+  if (OFFLINE_LIBRARY[simpleKey]) {
+    return OFFLINE_LIBRARY[simpleKey];
+  }
 
-  // 2. Fallback to Gemini if Online
+  // 3. Fallback to Gemini if Online
   if (navigator.onLine) {
     try {
       console.log("Offline miss. Searching AI...");
       return await searchVerseAI(query);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Search failed:", error);
-      throw new Error("Could not find verse online.");
+      // Propagate the specific error message (e.g., API Key missing)
+      throw new Error(error.message || "Could not find verse online.");
     }
   } else {
-    throw new Error("Offline: Verse not found in local library. Please use Manual Mode.");
+    throw new Error(`Offline: Verse "${query}" not found in local library. Please use Manual Mode.`);
   }
 };
