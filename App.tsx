@@ -240,7 +240,7 @@ const App: React.FC = () => {
   };
 
   // --- Navigation Logic (Forward/Backward) ---
-  const handleNavigateVerse = (direction: 'next' | 'prev') => {
+  const handleNavigateVerse = async (direction: 'next' | 'prev') => {
     if (!currentVerse) return;
 
     // Regex to parse "Book Chapter:Verse"
@@ -254,13 +254,25 @@ const App: React.FC = () => {
       const chapter = parseInt(match[2]);
       const verse = parseInt(match[3]);
       
-      const newVerse = direction === 'next' ? verse + 1 : verse - 1;
+      const newVerseNum = direction === 'next' ? verse + 1 : verse - 1;
       
       // Basic validation
-      if (newVerse < 1) return;
+      if (newVerseNum < 1) return;
 
-      const newQuery = `${book} ${chapter}:${newVerse}`;
-      handleSearch(newQuery);
+      const newQuery = `${book} ${chapter}:${newVerseNum}`;
+      
+      setIsLoading(true);
+      try {
+        const verse = await findScripture(newQuery);
+        setCurrentVerse(verse);
+        addToHistory(verse);
+        fetchInsightsForVerse(verse);
+      } catch (err) {
+        // Specific error handling for navigation
+        alert(`Navigation failed: Verse ${newVerseNum} not found in offline library.`);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
