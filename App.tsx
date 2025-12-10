@@ -12,22 +12,20 @@ const App: React.FC = () => {
   const [currentVerse, setCurrentVerse] = useState<VerseData | null>(null);
   const [currentInsight, setCurrentInsight] = useState<AIInsight | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>(''); // NEW: Custom loading text
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>('disconnected');
-  
-  // Detect "Live Mode" (Receiver Window) via URL
   const [isReceiverMode, setIsReceiverMode] = useState(false);
 
   // Broadcast Channel
   const channel = useMemo(() => new BroadcastChannel(BROADCAST_CHANNEL_NAME), []);
 
-  // History
+  // History & Settings
   const [history, setHistory] = useState<HistoryItem[]>(() => {
     const saved = localStorage.getItem('lumina_history');
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Settings
   const [settings, setSettings] = useState<PresentationSettings>(() => {
     const saved = localStorage.getItem('lumina_settings');
     return saved ? JSON.parse(saved) : {
@@ -38,22 +36,18 @@ const App: React.FC = () => {
     };
   });
 
-  // Preview Scaling State
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(0.5);
 
   // --- Effects ---
 
-  // 1. Initialize Mode & Receiver Logic
   useEffect(() => {
-    // Parse query params from the full URL to handle hash routing or clean URLs correctly
     const url = new URL(window.location.href);
     const isReceiver = url.searchParams.get('mode') === 'live';
     setIsReceiverMode(isReceiver);
 
     if (isReceiver) {
-      setConnectionStatus('connected'); // Assume connected if channel works
-      // Receiver Mode: Listen for updates
+      setConnectionStatus('connected');
       const handleMessage = (event: MessageEvent<BroadcastMessage>) => {
         if (event.data.type === 'STATE_UPDATE') {
           setCurrentVerse(event.data.payload.verse);
@@ -61,11 +55,8 @@ const App: React.FC = () => {
         }
       };
       channel.onmessage = handleMessage;
-      
-      // Request initial state
       channel.postMessage({ type: 'REQUEST_STATE' });
     } else {
-      // Sender Mode: Listen for requests from new windows
       const handleMessage = (event: MessageEvent<BroadcastMessage>) => {
         if (event.data.type === 'REQUEST_STATE') {
           channel.postMessage({
@@ -77,12 +68,9 @@ const App: React.FC = () => {
       channel.onmessage = handleMessage;
     }
 
-    return () => {
-      channel.onmessage = null;
-    };
+    return () => { channel.onmessage = null; };
   }, [channel, currentVerse, settings]);
 
-  // 2. Sender Mode: Broadcast changes when Verse or Settings change
   useEffect(() => {
     if (!isReceiverMode) {
       channel.postMessage({
@@ -93,14 +81,12 @@ const App: React.FC = () => {
     }
   }, [currentVerse, settings, isReceiverMode, channel]);
 
-  // 3. Persist history (Operator only)
   useEffect(() => {
     if (!isReceiverMode) {
       localStorage.setItem('lumina_history', JSON.stringify(history));
     }
   }, [history, isReceiverMode]);
 
-  // 4. Handle Fullscreen changes
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -109,31 +95,22 @@ const App: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // 5. Handle Preview Scaling (Operator only)
   useEffect(() => {
     if (isReceiverMode) return;
-
     const calculateScale = () => {
       if (previewContainerRef.current) {
         const { clientWidth, clientHeight } = previewContainerRef.current;
         const TARGET_WIDTH = 1920;
         const TARGET_HEIGHT = 1080;
-        
-        // Calculate scale to fit CONTAIN within the available space
         const scaleX = clientWidth / TARGET_WIDTH;
         const scaleY = clientHeight / TARGET_HEIGHT;
-        const scale = Math.min(scaleX, scaleY) * 0.90; // 0.90 margin
-        
+        const scale = Math.min(scaleX, scaleY) * 0.90;
         setPreviewScale(scale);
       }
     };
-
     window.addEventListener('resize', calculateScale);
-    calculateScale(); // Initial calculation
-    
-    // Safety check loop for layout shifts
+    calculateScale();
     const interval = setInterval(calculateScale, 1000);
-
     return () => {
       window.removeEventListener('resize', calculateScale);
       clearInterval(interval);
@@ -149,29 +126,18 @@ const App: React.FC = () => {
   const toggleFullscreen = async () => {
     const elem = document.getElementById('presentation-container');
     if (!elem) return;
-
     if (!document.fullscreenElement) {
-      try {
-        await elem.requestFullscreen();
-      } catch (err) {
-        console.error("Error attempting to enable fullscreen:", err);
-      }
+      await elem.requestFullscreen();
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
+      document.exitFullscreen();
     }
   };
 
   const fetchInsightsForVerse = useCallback(async (verse: VerseData) => {
       setCurrentInsight(null); 
-      // Only fetch if online
-      if (navigator.onLine) {
+      if (navigator.onLine && process.env.API_KEY) {
         const insight = await getVerseInsights(verse.reference, verse.text);
         setCurrentInsight(insight);
-      } else {
-        // Silent fail or set offline status for insights
-        console.log("Offline: Skipping insight generation.");
       }
   }, []);
 
@@ -179,7 +145,6 @@ const App: React.FC = () => {
     setHistory(prev => {
         const newHistory = [
           { id: Date.now().toString(), verse, timestamp: Date.now() },
-          // Remove duplicates
           ...prev.filter(h => h.verse.reference !== verse.reference)
         ].slice(0, 20); 
         return newHistory;
@@ -188,25 +153,29 @@ const App: React.FC = () => {
 
   const handleSearch = async (query: string) => {
     setIsLoading(true);
+    setLoadingMessage(''); // Reset
+    
+    // Hint to user if they are searching BoM for first time without key
+    if (!process.env.API_KEY && (query.toLowerCase().includes('alma') || query.toLowerCase().includes('nephi') || query.toLowerCase().includes('moroni'))) {
+       setLoadingMessage('DOWNLOADING LIBRARY...');
+    }
+
     try {
-      // Use hybrid service (Local -> then AI)
       const verse = await findScripture(query);
       setCurrentVerse(verse);
       addToHistory(verse);
       fetchInsightsForVerse(verse);
-
     } catch (error: any) {
-      // Show specific error message (e.g., API Key missing vs Not Found)
-      alert(error.message || "Could not find verse. Check your internet or use Manual tab.");
+      alert(error.message || "Could not find verse.");
     } finally {
       setIsLoading(false);
+      setLoadingMessage('');
     }
   };
 
   const handleManualPresent = (verse: VerseData) => {
     setCurrentVerse(verse);
     addToHistory(verse);
-    fetchInsightsForVerse(verse); // Will likely fail or be generic, but that's fine
   };
 
   const handleSelectHistory = (item: HistoryItem) => {
@@ -219,46 +188,25 @@ const App: React.FC = () => {
     const height = 720;
     const left = (window.screen.width - width) / 2;
     const top = (window.screen.height - height) / 2;
-    
-    // Construct absolute URL based on current location
     const url = new URL(window.location.href);
     url.searchParams.set('mode', 'live');
-    
     try {
-      const win = window.open(
-        url.toString(), 
-        'MormonScripturePresenterLive', 
-        `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
-      );
-      
-      if (!win) {
-        alert("Pop-up blocked! Please allow pop-ups for this site or use the 'Copy Link' button.");
-      }
+      window.open(url.toString(), 'MormonScripturePresenterLive', `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`);
     } catch (e) {
-      alert("Error opening window. Please copy the link manually.");
+      alert("Error opening window.");
     }
   };
 
-  // --- Navigation Logic (Forward/Backward) ---
   const handleNavigateVerse = async (direction: 'next' | 'prev') => {
     if (!currentVerse) return;
-
-    // Regex to parse "Book Chapter:Verse"
-    // Handles "1 Nephi 3:7", "D&C 6:1", "John 3:16"
-    // Captures: 1=Book, 2=Chapter, 3=Verse
     const regex = /^(.+)\s+(\d+):(\d+)$/;
     const match = currentVerse.reference.match(regex);
-
     if (match) {
       const book = match[1].trim();
       const chapter = parseInt(match[2]);
       const verse = parseInt(match[3]);
-      
       const newVerseNum = direction === 'next' ? verse + 1 : verse - 1;
-      
-      // Basic validation
       if (newVerseNum < 1) return;
-
       const newQuery = `${book} ${chapter}:${newVerseNum}`;
       
       setIsLoading(true);
@@ -267,38 +215,31 @@ const App: React.FC = () => {
         setCurrentVerse(verse);
         addToHistory(verse);
         fetchInsightsForVerse(verse);
-      } catch (err) {
-        // Specific error handling for navigation
-        alert(`Navigation failed: Verse ${newVerseNum} not found in offline library.`);
+      } catch (err: any) {
+         // Graceful failure for end of chapter
+         if(err.message.includes('not found')) {
+             console.log("End of chapter or content unavailable");
+         }
       } finally {
         setIsLoading(false);
       }
     }
   };
 
-  // --- Keyboard Shortcuts ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input field
       const target = e.target as HTMLElement;
       if (['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
-      
-      // Don't trigger if we are in Receiver mode (usually Operator controls)
       if (isReceiverMode) return;
-
-      if (e.key === 'ArrowRight') {
-        handleNavigateVerse('next');
-      } else if (e.key === 'ArrowLeft') {
-        handleNavigateVerse('prev');
-      }
+      if (e.key === 'ArrowRight') handleNavigateVerse('next');
+      if (e.key === 'ArrowLeft') handleNavigateVerse('prev');
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentVerse, isReceiverMode]); // Logic depends on currentVerse to calculate next
+  }, [currentVerse, isReceiverMode]); 
 
-
-  // --- RENDER: RECEIVER (LIVE) MODE ---
+  // --- RENDER ---
+  
   if (isReceiverMode) {
     return (
       <div id="presentation-container" className="h-screen w-screen bg-black overflow-hidden relative">
@@ -307,24 +248,22 @@ const App: React.FC = () => {
           settings={settings}
           isFullscreen={isFullscreen}
           toggleFullscreen={toggleFullscreen}
-          isLoading={false} // Loading only shown on operator
+          isLoading={false}
           isLive={true}
+          loadingMessage=""
         />
-        {/* Connection Status Indicator (Fades out if content exists) */}
         {!currentVerse && (
           <div className="absolute bottom-4 left-4 flex items-center space-x-2 bg-black/50 px-3 py-1 rounded text-xs text-gray-500 font-mono">
             <div className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span>{connectionStatus === 'connected' ? 'Connected to Operator' : 'Disconnected'}</span>
+            <span>{connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}</span>
           </div>
         )}
       </div>
     );
   }
 
-  // --- RENDER: OPERATOR (PREVIEW) MODE ---
   return (
     <div className="flex h-screen w-screen bg-black overflow-hidden font-sans">
-      {/* Sidebar Controls */}
       <div className={`transition-all duration-300 w-full md:w-96 flex-shrink-0 z-20 flex flex-col h-full bg-gray-950 border-r border-gray-800`}>
         <ControlPanel 
           onSearch={handleSearch}
@@ -341,8 +280,6 @@ const App: React.FC = () => {
           onPrev={() => handleNavigateVerse('prev')}
         />
       </div>
-
-      {/* Preview Area */}
       <div className="flex-1 relative h-full bg-gray-900 flex flex-col">
         <div className="flex-none p-4 bg-gray-900 border-b border-gray-800 flex justify-between items-center text-gray-400 text-xs uppercase tracking-widest font-bold z-10">
            <span>Live Preview Console</span>
@@ -351,16 +288,7 @@ const App: React.FC = () => {
              System Active
            </span>
         </div>
-        
-        {/* Presentation Container (Centered & Scaled) */}
-        <div 
-          className="flex-1 relative bg-gray-950 overflow-hidden" 
-          ref={previewContainerRef}
-        >
-          {/* 
-            Absolute Center Positioning Strategy 
-            This ensures the 1920x1080 preview is ALWAYS centered, regardless of parent flex behavior.
-          */}
+        <div className="flex-1 relative bg-gray-950 overflow-hidden" ref={previewContainerRef}>
           <div 
             style={{ 
               width: '1920px', 
@@ -379,11 +307,10 @@ const App: React.FC = () => {
               isFullscreen={false}
               toggleFullscreen={() => {}} 
               isLoading={isLoading}
+              loadingMessage={loadingMessage}
               isLive={false}
             />
           </div>
-
-          {/* Watermark Overlay */}
           <div className="absolute bottom-4 right-4 text-xs font-bold text-white/10 uppercase pointer-events-none select-none">
              1920x1080 Scaled Preview
           </div>
