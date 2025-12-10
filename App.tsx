@@ -9,31 +9,51 @@ const BROADCAST_CHANNEL_NAME = 'lumina_live_channel';
 
 const App: React.FC = () => {
   // --- State ---
+  // Initialize mode synchronously to prevent render flicker/blank screen
+  const [isReceiverMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+       return new URL(window.location.href).searchParams.get('mode') === 'live';
+    }
+    return false;
+  });
+
   const [currentVerse, setCurrentVerse] = useState<VerseData | null>(null);
   const [currentInsight, setCurrentInsight] = useState<AIInsight | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState<string>(''); // NEW: Custom loading text
+  const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>('disconnected');
-  const [isReceiverMode, setIsReceiverMode] = useState(false);
 
   // Broadcast Channel
-  const channel = useMemo(() => new BroadcastChannel(BROADCAST_CHANNEL_NAME), []);
+  const channel = useMemo(() => {
+    try {
+      return new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+    } catch (e) {
+      console.error("BroadcastChannel not supported", e);
+      return null;
+    }
+  }, []);
 
-  // History & Settings
+  // History & Settings (Safe LocalStorage)
   const [history, setHistory] = useState<HistoryItem[]>(() => {
-    const saved = localStorage.getItem('lumina_history');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('lumina_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   const [settings, setSettings] = useState<PresentationSettings>(() => {
-    const saved = localStorage.getItem('lumina_settings');
-    return saved ? JSON.parse(saved) : {
-      fontSize: 3.5,
-      theme: ThemeMode.Classic,
-      showReference: true,
-      alignment: 'center'
-    };
+    try {
+      const saved = localStorage.getItem('lumina_settings');
+      return saved ? JSON.parse(saved) : {
+        fontSize: 3.5,
+        theme: ThemeMode.Classic,
+        showReference: true,
+        alignment: 'center'
+      };
+    } catch {
+      return { fontSize: 3.5, theme: ThemeMode.Classic, showReference: true, alignment: 'center' };
+    }
   });
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
@@ -41,49 +61,86 @@ const App: React.FC = () => {
 
   // --- Effects ---
 
+  // 1. Communication Logic (BroadcastChannel + LocalStorage Backup)
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const isReceiver = url.searchParams.get('mode') === 'live';
-    setIsReceiverMode(isReceiver);
-
-    if (isReceiver) {
+    if (isReceiverMode) {
       setConnectionStatus('connected');
-      const handleMessage = (event: MessageEvent<BroadcastMessage>) => {
+
+      // Handler for Broadcast Channel
+      const handleBroadcast = (event: MessageEvent<BroadcastMessage>) => {
         if (event.data.type === 'STATE_UPDATE') {
           setCurrentVerse(event.data.payload.verse);
           setSettings(event.data.payload.settings);
         }
       };
-      channel.onmessage = handleMessage;
-      channel.postMessage({ type: 'REQUEST_STATE' });
+
+      // Handler for LocalStorage (Backup Sync)
+      const handleStorage = (event: StorageEvent) => {
+        if (event.key === 'lumina_live_state' && event.newValue) {
+          const state = JSON.parse(event.newValue);
+          setCurrentVerse(state.verse);
+          setSettings(state.settings);
+        }
+      };
+
+      if (channel) {
+        channel.onmessage = handleBroadcast;
+        channel.postMessage({ type: 'REQUEST_STATE' });
+      }
+      
+      window.addEventListener('storage', handleStorage);
+      
+      // Check for initial state in storage immediately
+      try {
+        const savedState = localStorage.getItem('lumina_live_state');
+        if (savedState) {
+          const state = JSON.parse(savedState);
+          setCurrentVerse(state.verse);
+          setSettings(state.settings);
+        }
+      } catch(e) {}
+
+      return () => { 
+        if (channel) channel.onmessage = null; 
+        window.removeEventListener('storage', handleStorage);
+      };
     } else {
+      // Operator Mode: Listen for requests
       const handleMessage = (event: MessageEvent<BroadcastMessage>) => {
         if (event.data.type === 'REQUEST_STATE') {
-          channel.postMessage({
+          channel?.postMessage({
             type: 'STATE_UPDATE',
             payload: { verse: currentVerse, settings }
           });
         }
       };
-      channel.onmessage = handleMessage;
+      if (channel) channel.onmessage = handleMessage;
+      return () => { if (channel) channel.onmessage = null; };
     }
+  }, [channel, isReceiverMode]); // Intentionally exclude dependencies that change often to avoid re-binding
 
-    return () => { channel.onmessage = null; };
-  }, [channel, currentVerse, settings]);
-
+  // 2. Sync State Updates (Operator -> World)
   useEffect(() => {
     if (!isReceiverMode) {
-      channel.postMessage({
+      // Send via Broadcast Channel
+      channel?.postMessage({
         type: 'STATE_UPDATE',
         payload: { verse: currentVerse, settings }
       });
-      localStorage.setItem('lumina_settings', JSON.stringify(settings));
+
+      // Send via LocalStorage (Backup)
+      try {
+        localStorage.setItem('lumina_live_state', JSON.stringify({ verse: currentVerse, settings }));
+        localStorage.setItem('lumina_settings', JSON.stringify(settings));
+      } catch (e) {}
     }
   }, [currentVerse, settings, isReceiverMode, channel]);
 
   useEffect(() => {
     if (!isReceiverMode) {
-      localStorage.setItem('lumina_history', JSON.stringify(history));
+      try {
+        localStorage.setItem('lumina_history', JSON.stringify(history));
+      } catch (e) {}
     }
   }, [history, isReceiverMode]);
 
@@ -153,9 +210,8 @@ const App: React.FC = () => {
 
   const handleSearch = async (query: string) => {
     setIsLoading(true);
-    setLoadingMessage(''); // Reset
+    setLoadingMessage('');
     
-    // Hint to user if they are searching BoM for first time without key
     if (!process.env.API_KEY && (query.toLowerCase().includes('alma') || query.toLowerCase().includes('nephi') || query.toLowerCase().includes('moroni'))) {
        setLoadingMessage('DOWNLOADING LIBRARY...');
     }
@@ -192,6 +248,11 @@ const App: React.FC = () => {
     url.searchParams.set('mode', 'live');
     try {
       window.open(url.toString(), 'MormonScripturePresenterLive', `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`);
+      // Force update state to ensure new window gets data
+      channel?.postMessage({
+        type: 'STATE_UPDATE',
+        payload: { verse: currentVerse, settings }
+      });
     } catch (e) {
       alert("Error opening window.");
     }
@@ -216,9 +277,9 @@ const App: React.FC = () => {
         addToHistory(verse);
         fetchInsightsForVerse(verse);
       } catch (err: any) {
-         // Graceful failure for end of chapter
          if(err.message.includes('not found')) {
              console.log("End of chapter or content unavailable");
+             alert(`Cannot navigate ${direction}: Verse not found or end of chapter.`);
          }
       } finally {
         setIsLoading(false);
@@ -253,9 +314,9 @@ const App: React.FC = () => {
           loadingMessage=""
         />
         {!currentVerse && (
-          <div className="absolute bottom-4 left-4 flex items-center space-x-2 bg-black/50 px-3 py-1 rounded text-xs text-gray-500 font-mono">
-            <div className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span>{connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}</span>
+          <div className="absolute bottom-4 left-4 flex items-center space-x-2 bg-black/50 px-3 py-1 rounded text-xs text-gray-400 font-mono z-50">
+            <div className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+            <span>{connectionStatus === 'connected' ? 'Live Signal Active' : 'Disconnected'}</span>
           </div>
         )}
       </div>
