@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { VerseData, PresentationSettings, ThemeMode } from '../types';
-import { Minimize2, Maximize2, Wifi } from 'lucide-react';
+import { Minimize2, Maximize2 } from 'lucide-react';
 
 interface SlideDisplayProps {
   verse: VerseData | null;
@@ -77,24 +77,9 @@ const SlideDisplay: React.FC<SlideDisplayProps> = ({
       <div className={`relative flex flex-col items-center justify-center w-full h-full bg-navy-900 overflow-hidden`}>
          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
          <div className="relative z-10 text-center space-y-6 animate-fadeIn">
-            {isLive ? (
-              <>
-                 <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
-                    <div className="absolute inset-0 bg-blue-500 rounded-full opacity-20 animate-ping"></div>
-                    <div className="relative bg-navy-600 p-4 rounded-full text-white shadow-xl border border-navy-400">
-                       <Wifi size={40} />
-                    </div>
-                 </div>
-                 <h1 className="text-4xl font-display text-blue-200 tracking-wider">Live Display Active</h1>
-                 <p className="text-xl text-blue-300 font-light">Waiting for operator...</p>
-              </>
-            ) : (
-              <>
-                <h1 className="text-6xl font-display text-blue-200 tracking-wider">Mormon Scripture Presenter</h1>
-                <div className="w-24 h-1 bg-blue-400 mx-auto rounded-full opacity-50"></div>
-                <p className="text-xl text-blue-300 font-light tracking-wide">Ready to present.</p>
-              </>
-            )}
+            <h1 className="text-6xl font-display text-blue-200 tracking-wider">Mormon Scripture Presenter</h1>
+            <div className="w-24 h-1 bg-blue-400 mx-auto rounded-full opacity-50"></div>
+            <p className="text-xl text-blue-300 font-light tracking-wide">Ready to present.</p>
         </div>
       </div>
     );

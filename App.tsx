@@ -61,7 +61,7 @@ const App: React.FC = () => {
 
   // --- Effects ---
 
-  // 1. Communication Logic (BroadcastChannel + LocalStorage Backup)
+  // 1. Communication Logic (BroadcastChannel + LocalStorage Backup + Polling)
   useEffect(() => {
     if (isReceiverMode) {
       setConnectionStatus('connected');
@@ -106,6 +106,17 @@ const App: React.FC = () => {
       
       window.addEventListener('storage', handleStorage);
       
+      // Polling Backup: Check storage every 1s to ensure sync if events fail
+      const pollInterval = setInterval(() => {
+         try {
+            const savedState = localStorage.getItem('lumina_live_state');
+            if (savedState) {
+              const state = JSON.parse(savedState);
+              updateStateIfChanged(state.verse, state.settings);
+            }
+         } catch(e) {}
+      }, 1000);
+      
       // Check for initial state in storage immediately
       try {
         const savedState = localStorage.getItem('lumina_live_state');
@@ -118,6 +129,7 @@ const App: React.FC = () => {
       return () => { 
         if (channel) channel.onmessage = null; 
         window.removeEventListener('storage', handleStorage);
+        clearInterval(pollInterval);
       };
     } else {
       // Operator Mode: Listen for requests
@@ -262,8 +274,8 @@ const App: React.FC = () => {
     const url = new URL(window.location.href);
     url.searchParams.set('mode', 'live');
     try {
-      // "popup=yes" is a modern feature to request minimal UI (hides address bar in Edge/Chrome)
-      window.open(url.toString(), 'MormonScripturePresenterLive', `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no,popup=yes`);
+      // Reverted popup=yes to ensure robust window communication
+      window.open(url.toString(), 'MormonScripturePresenterLive', `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`);
       // Force update state to ensure new window gets data
       channel?.postMessage({
         type: 'STATE_UPDATE',
