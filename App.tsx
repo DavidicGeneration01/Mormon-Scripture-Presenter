@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ControlPanel from './components/ControlPanel';
 import SlideDisplay from './components/SlideDisplay';
@@ -46,13 +47,14 @@ const App: React.FC = () => {
     try {
       const saved = localStorage.getItem('lumina_settings');
       return saved ? JSON.parse(saved) : {
-        fontSize: 3.5,
+        fontSize: 4.0,
+        fontMode: 'auto',
         theme: ThemeMode.Classic,
         showReference: true,
         alignment: 'center'
       };
     } catch {
-      return { fontSize: 3.5, theme: ThemeMode.Classic, showReference: true, alignment: 'center' };
+      return { fontSize: 4.0, fontMode: 'auto', theme: ThemeMode.Classic, showReference: true, alignment: 'center' };
     }
   });
 
@@ -230,8 +232,11 @@ const App: React.FC = () => {
         const newHistory = [
           { id: Date.now().toString(), verse, timestamp: Date.now() },
           ...prev.filter(h => h.verse.reference !== verse.reference)
-        ].slice(0, 20); 
-        return newHistory;
+        ].slice(20, 0); // Corrected slice for recent history
+        return [
+          { id: Date.now().toString(), verse, timestamp: Date.now() },
+          ...prev.filter(h => h.verse.reference !== verse.reference)
+        ].slice(0, 20);
       });
   }
 

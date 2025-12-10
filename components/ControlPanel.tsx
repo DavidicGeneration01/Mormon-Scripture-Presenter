@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Search, BookOpen, Settings, Info, History, MonitorPlay, Link as LinkIcon, PenTool, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, BookOpen, Settings, Info, History, MonitorPlay, Link as LinkIcon, PenTool, ChevronLeft, ChevronRight, Type } from 'lucide-react';
 import { VerseData, AIInsight, PresentationSettings, ThemeMode, HistoryItem } from '../types';
 
 interface ControlPanelProps {
@@ -282,6 +283,59 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         {activeTab === 'settings' && (
           <div className="space-y-6 animate-fadeIn">
              
+             {/* Font Size Control */}
+             <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Font Sizing</label>
+                <div className="bg-gray-900 p-3 rounded-lg border border-gray-800 space-y-4">
+                    {/* Toggle Buttons */}
+                    <div className="flex bg-gray-800 rounded p-1">
+                        <button
+                            onClick={() => updateSettings({ fontMode: 'auto' })}
+                            className={`flex-1 py-1.5 rounded text-xs uppercase font-bold transition-all ${
+                                settings.fontMode === 'auto' 
+                                ? 'bg-sky-600 text-white shadow' 
+                                : 'text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            Auto
+                        </button>
+                        <button
+                            onClick={() => updateSettings({ fontMode: 'manual' })}
+                            className={`flex-1 py-1.5 rounded text-xs uppercase font-bold transition-all ${
+                                settings.fontMode === 'manual' 
+                                ? 'bg-sky-600 text-white shadow' 
+                                : 'text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            Manual
+                        </button>
+                    </div>
+
+                    {/* Manual Slider */}
+                    <div className={`transition-opacity duration-300 ${settings.fontMode === 'auto' ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+                        <div className="flex justify-between text-xs text-gray-400 mb-2">
+                           <span className="flex items-center"><Type size={12} className="mr-1"/> Small</span>
+                           <span className="flex items-center"><Type size={16} className="mr-1"/> Large</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="2"
+                            max="10"
+                            step="0.1"
+                            value={settings.fontSize || 4}
+                            onChange={(e) => updateSettings({ fontSize: parseFloat(e.target.value) })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                        />
+                        <div className="text-right text-xs text-sky-500 mt-1">{settings.fontSize?.toFixed(1)}rem</div>
+                    </div>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-2">
+                    {settings.fontMode === 'auto' 
+                     ? 'Font size automatically adjusts to fit the slide.' 
+                     : 'Manually override font size.'}
+                </p>
+             </div>
+
              {/* Theme Selector */}
              <div>
                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Theme</label>
@@ -331,10 +385,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 >
                   <span className={`w-4 h-4 bg-white rounded-full transform transition-transform ml-1 ${settings.showReference ? 'translate-x-5' : ''}`} />
                 </button>
-             </div>
-             
-             <div className="bg-gray-900 p-3 rounded text-xs text-gray-500 border border-gray-800 mt-4">
-                Note: Font size is automatically adjusted to fit the slide perfectly.
              </div>
 
           </div>

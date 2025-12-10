@@ -1,3 +1,4 @@
+
 export enum ThemeMode {
   Classic = 'CLASSIC',
   Modern = 'MODERN',
@@ -24,6 +25,7 @@ export interface AIInsight {
 
 export interface PresentationSettings {
   fontSize: number;
+  fontMode: 'auto' | 'manual';
   theme: ThemeMode;
   showReference: boolean;
   alignment: 'left' | 'center' | 'right';

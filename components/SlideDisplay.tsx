@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { VerseData, PresentationSettings, ThemeMode } from '../types';
 import { Minimize2, Maximize2 } from 'lucide-react';
@@ -57,6 +58,12 @@ const SlideDisplay: React.FC<SlideDisplayProps> = ({
   // Heuristic: Shorter text = Larger font. Longer text = Smaller font.
   // We use a logarithmic curve to smooth the transition.
   const fontSize = useMemo(() => {
+    // Manual Override
+    if (settings.fontMode === 'manual') {
+        return settings.fontSize || 4;
+    }
+
+    // Auto Logic
     if (!verse) return 4;
     const len = verse.text.length;
     // Formula: Start at 10rem, subtract log of length.
@@ -67,7 +74,7 @@ const SlideDisplay: React.FC<SlideDisplayProps> = ({
     const calculated = 10 - Math.log(len) * 1.1;
     // Clamp between 2.2rem (minimum readable) and 8.5rem (maximum title size)
     return Math.min(8.5, Math.max(2.2, calculated));
-  }, [verse?.text]);
+  }, [verse?.text, settings.fontSize, settings.fontMode]);
 
   const fontSizeStyle = { fontSize: `${fontSize}rem`, lineHeight: '1.3' };
 
