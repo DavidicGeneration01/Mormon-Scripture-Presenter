@@ -36,9 +36,11 @@ function createWindow() {
         overrideBrowserWindowOptions: {
           title: "Scripture Live Display",
           frame: false, // Removes the menu bar/chrome (Perfect for Projectors)
+          thickFrame: false, // Removes window border shadow on Windows
           fullscreenable: true,
           autoHideMenuBar: true,
           backgroundColor: '#000000',
+          titleBarStyle: 'hidden', // macOS hide title bar
           webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { VerseData, PresentationSettings, ThemeMode } from '../types';
 import { Minimize2, Maximize2, Wifi } from 'lucide-react';
 
@@ -24,10 +24,11 @@ const SlideDisplay: React.FC<SlideDisplayProps> = ({
   const [animateKey, setAnimateKey] = useState(0);
 
   useEffect(() => {
+    // Only trigger animation if the Reference OR Text actually changes
     if (verse) {
       setAnimateKey(prev => prev + 1);
     }
-  }, [verse]);
+  }, [verse?.reference, verse?.text]);
 
   const getThemeClasses = (theme: ThemeMode) => {
     switch (theme) {
@@ -52,7 +53,23 @@ const SlideDisplay: React.FC<SlideDisplayProps> = ({
     ${getThemeClasses(settings.theme)}
   `;
 
-  const fontSizeStyle = { fontSize: `${settings.fontSize}rem`, lineHeight: '1.4' };
+  // --- Automatic Font Size Calculation ---
+  // Heuristic: Shorter text = Larger font. Longer text = Smaller font.
+  // We use a logarithmic curve to smooth the transition.
+  const fontSize = useMemo(() => {
+    if (!verse) return 4;
+    const len = verse.text.length;
+    // Formula: Start at 10rem, subtract log of length.
+    // Length 20 -> ~7.5rem
+    // Length 200 -> ~4.5rem
+    // Length 500 -> ~3rem
+    // Length 1000 -> ~2.4rem
+    const calculated = 10 - Math.log(len) * 1.1;
+    // Clamp between 2.2rem (minimum readable) and 8.5rem (maximum title size)
+    return Math.min(8.5, Math.max(2.2, calculated));
+  }, [verse?.text]);
+
+  const fontSizeStyle = { fontSize: `${fontSize}rem`, lineHeight: '1.3' };
 
   // Empty State (No Verse)
   if (!verse && !isLoading) {
@@ -90,7 +107,7 @@ const SlideDisplay: React.FC<SlideDisplayProps> = ({
       {isLive && (
         <button 
           onClick={toggleFullscreen}
-          className="absolute top-4 right-4 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white/50 hover:text-white transition-all z-50"
+          className="absolute top-4 right-4 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white/50 hover:text-white transition-all duration-300 z-50 opacity-0 hover:opacity-100"
           title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
         >
           {isFullscreen ? <Minimize2 size={24} /> : <Maximize2 size={24} />}
@@ -113,15 +130,15 @@ const SlideDisplay: React.FC<SlideDisplayProps> = ({
             key={animateKey} 
             className={`z-30 max-w-[90%] w-full ${getAlignmentClass(settings.alignment)} animate-[fadeIn_400ms_ease-out]`}
         >
-          <div className="font-medium mb-12 tracking-wide drop-shadow-lg leading-relaxed text-balance" style={fontSizeStyle}>
+          <div className="font-medium mb-8 tracking-wide drop-shadow-lg leading-relaxed text-balance" style={fontSizeStyle}>
             {verse.text}
           </div>
           {settings.showReference && (
-            <div className="mt-12 border-t border-current/20 pt-8 inline-block w-full">
-              <h2 className="text-5xl md:text-7xl font-display text-blue-200 tracking-wider uppercase">
+            <div className="mt-8 border-t border-current/20 pt-6 inline-block w-full">
+              <h2 className="text-5xl md:text-6xl font-display text-blue-200 tracking-wider uppercase">
                 {verse.reference}
               </h2>
-              <p className="text-xl opacity-70 mt-3 uppercase tracking-[0.2em] font-sans font-light">{verse.version}</p>
+              <p className="text-lg opacity-70 mt-2 uppercase tracking-[0.2em] font-sans font-light">{verse.version}</p>
             </div>
           )}
         </div>

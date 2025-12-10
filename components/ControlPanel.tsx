@@ -302,22 +302,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                </div>
              </div>
 
-             {/* Font Size */}
-             <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
-                  Font Size ({settings.fontSize}x)
-                </label>
-                <input 
-                  type="range" 
-                  min="2" 
-                  max="8" 
-                  step="0.5"
-                  value={settings.fontSize}
-                  onChange={(e) => updateSettings({ fontSize: parseFloat(e.target.value) })}
-                  className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-sky-500"
-                />
-             </div>
-
              {/* Alignment */}
              <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Alignment</label>
@@ -347,6 +331,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 >
                   <span className={`w-4 h-4 bg-white rounded-full transform transition-transform ml-1 ${settings.showReference ? 'translate-x-5' : ''}`} />
                 </button>
+             </div>
+             
+             <div className="bg-gray-900 p-3 rounded text-xs text-gray-500 border border-gray-800 mt-4">
+                Note: Font size is automatically adjusted to fit the slide perfectly.
              </div>
 
           </div>

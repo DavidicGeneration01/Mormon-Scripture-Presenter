@@ -66,11 +66,28 @@ const App: React.FC = () => {
     if (isReceiverMode) {
       setConnectionStatus('connected');
 
+      const updateStateIfChanged = (newVerse: VerseData | null, newSettings: PresentationSettings) => {
+        // Fix: Deep compare or check specific properties to prevent redundant updates causing "shaking"
+        setCurrentVerse(prevVerse => {
+            if (!prevVerse && !newVerse) return null;
+            if (prevVerse && newVerse && prevVerse.reference === newVerse.reference && prevVerse.text === newVerse.text) {
+                return prevVerse; // Return exact same object reference to skip re-render/animation
+            }
+            return newVerse;
+        });
+
+        setSettings(prevSettings => {
+            if (JSON.stringify(prevSettings) === JSON.stringify(newSettings)) {
+                return prevSettings;
+            }
+            return newSettings;
+        });
+      };
+
       // Handler for Broadcast Channel
       const handleBroadcast = (event: MessageEvent<BroadcastMessage>) => {
         if (event.data.type === 'STATE_UPDATE') {
-          setCurrentVerse(event.data.payload.verse);
-          setSettings(event.data.payload.settings);
+          updateStateIfChanged(event.data.payload.verse, event.data.payload.settings);
         }
       };
 
@@ -78,8 +95,7 @@ const App: React.FC = () => {
       const handleStorage = (event: StorageEvent) => {
         if (event.key === 'lumina_live_state' && event.newValue) {
           const state = JSON.parse(event.newValue);
-          setCurrentVerse(state.verse);
-          setSettings(state.settings);
+          updateStateIfChanged(state.verse, state.settings);
         }
       };
 
@@ -95,8 +111,7 @@ const App: React.FC = () => {
         const savedState = localStorage.getItem('lumina_live_state');
         if (savedState) {
           const state = JSON.parse(savedState);
-          setCurrentVerse(state.verse);
-          setSettings(state.settings);
+          updateStateIfChanged(state.verse, state.settings);
         }
       } catch(e) {}
 
@@ -247,7 +262,8 @@ const App: React.FC = () => {
     const url = new URL(window.location.href);
     url.searchParams.set('mode', 'live');
     try {
-      window.open(url.toString(), 'MormonScripturePresenterLive', `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`);
+      // "popup=yes" is a modern feature to request minimal UI (hides address bar in Edge/Chrome)
+      window.open(url.toString(), 'MormonScripturePresenterLive', `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no,popup=yes`);
       // Force update state to ensure new window gets data
       channel?.postMessage({
         type: 'STATE_UPDATE',
