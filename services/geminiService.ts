@@ -1,13 +1,23 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { VerseData, AIInsight } from '../types';
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const modelId = "gemini-2.5-flash";
+
+// Helper to safely get AI instance
+const getAIClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.warn("API Key is missing. AI features will be disabled.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 // Helper function used by scriptureService
 export const searchVerse = async (query: string, version: string = 'KJV'): Promise<VerseData> => {
+  const ai = getAIClient();
+  if (!ai) throw new Error("Offline Mode: API Key missing.");
+
   const prompt = `
     Find the scripture verse described by this query: "${query}".
     
@@ -62,6 +72,15 @@ export const searchVerse = async (query: string, version: string = 'KJV'): Promi
 };
 
 export const getVerseInsights = async (reference: string, text: string): Promise<AIInsight> => {
+  const ai = getAIClient();
+  if (!ai) {
+    return {
+      context: "Offline Mode.",
+      theology: "AI Insights unavailable.",
+      application: "Please check internet/API Key."
+    };
+  }
+
   const prompt = `
     Analyze this scripture verse: "${reference} - ${text}".
     Provide brief, presentable insights for a slide show.
