@@ -32,7 +32,11 @@ const BOOK_MAP: Record<string, string> = {
   'dc': 'doctrine and covenants', 'd&c': 'doctrine and covenants', 'doc': 'doctrine and covenants',
   'moses': 'moses',
   'abr': 'abraham', 'abraham': 'abraham',
-  'aof': 'articles of faith', 'art': 'articles of faith'
+  'aof': 'articles of faith', 'art': 'articles of faith',
+  
+  // Pearl of Great Price - Joseph Smith
+  'jsm': 'joseph smith-matthew', 'js-m': 'joseph smith-matthew', 'joseph smith-matthew': 'joseph smith-matthew', 'joseph smith-mathew': 'joseph smith-matthew',
+  'jsh': 'joseph smith-history', 'js-h': 'joseph smith-history', 'joseph smith-history': 'joseph smith-history'
 };
 
 // --- In-Memory Cache for External LDS Data ---
@@ -73,8 +77,12 @@ const OFFLINE_LIBRARY: Record<string, VerseData> = {
  */
 const parseQuery = (query: string) => {
   const clean = query.trim().toLowerCase();
-  // Regex to extract parts. Handles "1 ne 3:7", "1nephi 3 7", "jh5:5", "d&c4:1"
-  const regex = /^(\d*)?\s*([a-z&]+)\s*(\d+)[:.\s]*(\d+)$/;
+  // Regex: 
+  // 1. Optional leading digits (e.g. "1" in "1 Nephi")
+  // 2. Book text including spaces/hyphens/ampersands (Lazy match to avoid eating chapter number)
+  // 3. Chapter number
+  // 4. Verse number
+  const regex = /^(\d*)?\s*([a-z&\s-]+?)\s+(\d+)[:.\s]*(\d+)$/;
   const match = clean.match(regex);
   if (!match) return null;
 
@@ -83,8 +91,8 @@ const parseQuery = (query: string) => {
   const chapter = parseInt(match[3]);
   const verse = parseInt(match[4]);
   
-  const rawBook = leadingNum + bookText; 
-  const normalizedBook = BOOK_MAP[rawBook] || rawBook; // e.g. "1 nephi", "john"
+  const rawBook = (leadingNum + bookText).trim().replace(/\s+/g, ' '); 
+  const normalizedBook = BOOK_MAP[rawBook] || rawBook; 
 
   return { book: normalizedBook, chapter, verse };
 };
@@ -134,7 +142,7 @@ const fetchLdsScripture = async (book: string, chapter: number, verse: number): 
     volume = 'D&C';
     url = 'https://raw.githubusercontent.com/bcbooks/scriptures-json/master/doctrine-and-covenants.json';
     cache = dcCache;
-  } else if (book.includes('moses') || book.includes('abraham') || book.includes('articles')) {
+  } else if (book.includes('moses') || book.includes('abraham') || book.includes('articles') || book.includes('joseph smith')) {
     volume = 'Pearl of Great Price';
     url = 'https://raw.githubusercontent.com/bcbooks/scriptures-json/master/pearl-of-great-price.json';
     cache = pgpCache;
@@ -160,17 +168,20 @@ const fetchLdsScripture = async (book: string, chapter: number, verse: number): 
   let chapters: any[] | undefined;
   let bookTitle = book; // Default title
 
+  // Helper to handle Em-dash vs Hyphen vs En-dash
+  const normalizeTitle = (t: string) => t.toLowerCase().replace(/[—–]/g, '-').trim();
+
   // 1. Try finding within "books" array (Standard format)
   if (cache.books && Array.isArray(cache.books)) {
-    const bookData = cache.books.find((b: any) => b.book.toLowerCase() === book.toLowerCase());
+    // Robust find: ignore case, ignore dash type
+    const bookData = cache.books.find((b: any) => normalizeTitle(b.book) === normalizeTitle(book) || normalizeTitle(b.book).includes(normalizeTitle(book)));
+    
     if (bookData) {
         // Exact book match found
         chapters = bookData.chapters;
         bookTitle = bookData.book;
     } else if (volume === 'D&C') {
-        // Special Case: D&C might be the only book in the array, but named "Doctrine and Covenants"
-        // while our search query might have slight variation.
-        // If there is only one book and it is D&C, use it.
+        // Special Case: D&C might be the only book in the array
         if (cache.books.length === 1) {
              chapters = cache.books[0].chapters;
              bookTitle = cache.books[0].book;
@@ -253,8 +264,10 @@ export const findScripture = async (query: string): Promise<VerseData> => {
   // 4. Public Sources Fallback (No Key Needed)
   if (navigator.onLine) {
     try {
-      // Is it Bible?
-      if (['matthew','mark','luke','john','acts','romans','corinthians','galatians','ephesians','philippians','colossians','thessalonians','timothy','titus','philemon','hebrews','james','peter','jude','revelation','genesis','exodus','leviticus','numbers','deuteronomy','joshua','judges','ruth','samuel','kings','chronicles','ezra','nehemiah','esther','job','psalms','proverbs','ecclesiastes','solomon','isaiah','jeremiah','lamentations','ezekiel','daniel','hosea','joel','amos','obadiah','jonah','micah','nahum','habakkuk','zephaniah','haggai','zechariah','malachi'].some(b => parsed.book.includes(b))) {
+      const bibleBooks = ['matthew','mark','luke','john','acts','romans','corinthians','galatians','ephesians','philippians','colossians','thessalonians','timothy','titus','philemon','hebrews','james','peter','jude','revelation','genesis','exodus','leviticus','numbers','deuteronomy','joshua','judges','ruth','samuel','kings','chronicles','ezra','nehemiah','esther','job','psalms','proverbs','ecclesiastes','solomon','isaiah','jeremiah','lamentations','ezekiel','daniel','hosea','joel','amos','obadiah','jonah','micah','nahum','habakkuk','zephaniah','haggai','zechariah','malachi'];
+      
+      // Is it Bible? (Explicitly exclude Joseph Smith translations which might contain 'matthew')
+      if (bibleBooks.some(b => parsed.book.includes(b)) && !parsed.book.includes('joseph smith')) {
          return await fetchFromBibleApi(parsed.book, parsed.chapter, parsed.verse);
       }
       
