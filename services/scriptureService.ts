@@ -73,7 +73,7 @@ const OFFLINE_LIBRARY: Record<string, VerseData> = {
  */
 const parseQuery = (query: string) => {
   const clean = query.trim().toLowerCase();
-  // Regex to extract parts. Handles "1 ne 3:7", "1nephi 3 7", "jh5:5"
+  // Regex to extract parts. Handles "1 ne 3:7", "1nephi 3 7", "jh5:5", "d&c4:1"
   const regex = /^(\d*)?\s*([a-z&]+)\s*(\d+)[:.\s]*(\d+)$/;
   const match = clean.match(regex);
   if (!match) return null;
@@ -155,25 +155,48 @@ const fetchLdsScripture = async (book: string, chapter: number, verse: number): 
     if (volume === 'Pearl of Great Price') pgpCache = cache;
   }
 
-  // Traverse JSON structure (bcbooks format: books[].chapters[].verses[])
-  // Need to normalize book name matching (e.g. "1 nephi" matches "1 Nephi")
-  const bookData = cache.books.find((b: any) => b.book.toLowerCase() === book.toLowerCase());
-  if (!bookData) throw new Error(`Book '${book}' not found in ${volume}`);
+  // --- TRAVERSAL LOGIC ---
+  
+  if (volume === 'D&C') {
+    // D&C JSON typically uses "sections" array instead of "books"
+    if (!cache.sections) throw new Error("Invalid D&C data structure (missing sections)");
+    
+    const section = cache.sections.find((s: any) => (s.section || s.chapter) == chapter);
+    if (!section) throw new Error(`Section ${chapter} not found`);
 
-  const chapterData = bookData.chapters.find((c: any) => c.chapter == chapter);
-  if (!chapterData) throw new Error(`Chapter ${chapter} not found`);
+    const verseData = section.verses.find((v: any) => v.verse == verse);
+    if (!verseData) throw new Error(`Verse ${verse} not found`);
 
-  const verseData = chapterData.verses.find((v: any) => v.verse == verse);
-  if (!verseData) throw new Error(`Verse ${verse} not found`);
+    return {
+      reference: `Doctrine and Covenants ${chapter}:${verse}`,
+      text: verseData.text,
+      book: "Doctrine and Covenants",
+      chapter: chapter,
+      verse: verse,
+      version: volume
+    };
+  } else {
+    // Standard Works (BoM, PGP) use "books" array
+    if (!cache.books) throw new Error("Invalid data structure (missing books)");
 
-  return {
-    reference: `${bookData.book} ${chapter}:${verse}`,
-    text: verseData.text,
-    book: bookData.book,
-    chapter: chapter,
-    verse: verse,
-    version: volume
-  };
+    const bookData = cache.books.find((b: any) => b.book.toLowerCase() === book.toLowerCase());
+    if (!bookData) throw new Error(`Book '${book}' not found in ${volume}`);
+
+    const chapterData = bookData.chapters.find((c: any) => c.chapter == chapter);
+    if (!chapterData) throw new Error(`Chapter ${chapter} not found`);
+
+    const verseData = chapterData.verses.find((v: any) => v.verse == verse);
+    if (!verseData) throw new Error(`Verse ${verse} not found`);
+
+    return {
+      reference: `${bookData.book} ${chapter}:${verse}`,
+      text: verseData.text,
+      book: bookData.book,
+      chapter: chapter,
+      verse: verse,
+      version: volume
+    };
+  }
 };
 
 /**
