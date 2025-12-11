@@ -155,48 +155,75 @@ const fetchLdsScripture = async (book: string, chapter: number, verse: number): 
     if (volume === 'Pearl of Great Price') pgpCache = cache;
   }
 
-  // --- TRAVERSAL LOGIC ---
+  // --- TRAVERSAL LOGIC (ROBUST) ---
   
-  if (volume === 'D&C') {
-    // D&C JSON typically uses "sections" array instead of "books"
-    if (!cache.sections) throw new Error("Invalid D&C data structure (missing sections)");
-    
-    const section = cache.sections.find((s: any) => (s.section || s.chapter) == chapter);
-    if (!section) throw new Error(`Section ${chapter} not found`);
+  let chapters: any[] | undefined;
+  let bookTitle = book; // Default title
 
-    const verseData = section.verses.find((v: any) => v.verse == verse);
-    if (!verseData) throw new Error(`Verse ${verse} not found`);
-
-    return {
-      reference: `Doctrine and Covenants ${chapter}:${verse}`,
-      text: verseData.text,
-      book: "Doctrine and Covenants",
-      chapter: chapter,
-      verse: verse,
-      version: volume
-    };
-  } else {
-    // Standard Works (BoM, PGP) use "books" array
-    if (!cache.books) throw new Error("Invalid data structure (missing books)");
-
+  // 1. Try finding within "books" array (Standard format)
+  if (cache.books && Array.isArray(cache.books)) {
     const bookData = cache.books.find((b: any) => b.book.toLowerCase() === book.toLowerCase());
-    if (!bookData) throw new Error(`Book '${book}' not found in ${volume}`);
-
-    const chapterData = bookData.chapters.find((c: any) => c.chapter == chapter);
-    if (!chapterData) throw new Error(`Chapter ${chapter} not found`);
-
-    const verseData = chapterData.verses.find((v: any) => v.verse == verse);
-    if (!verseData) throw new Error(`Verse ${verse} not found`);
-
-    return {
-      reference: `${bookData.book} ${chapter}:${verse}`,
-      text: verseData.text,
-      book: bookData.book,
-      chapter: chapter,
-      verse: verse,
-      version: volume
-    };
+    if (bookData) {
+        // Exact book match found
+        chapters = bookData.chapters;
+        bookTitle = bookData.book;
+    } else if (volume === 'D&C') {
+        // Special Case: D&C might be the only book in the array, but named "Doctrine and Covenants"
+        // while our search query might have slight variation.
+        // If there is only one book and it is D&C, use it.
+        if (cache.books.length === 1) {
+             chapters = cache.books[0].chapters;
+             bookTitle = cache.books[0].book;
+        }
+    }
   }
+
+  // 2. Try "sections" array (Alternative D&C format found in some JSON versions)
+  if (!chapters && volume === 'D&C' && cache.sections && Array.isArray(cache.sections)) {
+      chapters = cache.sections;
+      bookTitle = "Doctrine and Covenants";
+  }
+
+  // 3. Try root "chapters" (Single-book JSON format)
+  if (!chapters && cache.chapters && Array.isArray(cache.chapters)) {
+      chapters = cache.chapters;
+      // If we inferred volume earlier, use it as title
+      if (volume === 'D&C') bookTitle = "Doctrine and Covenants";
+      if (volume === 'Book of Mormon') bookTitle = book; 
+  }
+
+  // Final validation before access
+  if (!chapters) {
+      throw new Error(`Data structure mismatch: Could not locate chapters or sections for ${book}.`);
+  }
+
+  // Find Chapter/Section
+  // Note: D&C chapters are sometimes keyed as 'section', sometimes 'chapter'
+  const chapterData = chapters.find((c: any) => (c.chapter || c.section) == chapter);
+  
+  if (!chapterData) {
+      throw new Error(`${volume === 'D&C' ? 'Section' : 'Chapter'} ${chapter} not found.`);
+  }
+
+  // Find Verse
+  if (!chapterData.verses || !Array.isArray(chapterData.verses)) {
+      throw new Error("Verses data missing or invalid in chapter.");
+  }
+
+  const verseData = chapterData.verses.find((v: any) => v.verse == verse);
+  
+  if (!verseData) {
+      throw new Error(`Verse ${verse} not found.`);
+  }
+
+  return {
+    reference: `${bookTitle} ${chapter}:${verse}`,
+    text: verseData.text,
+    book: bookTitle,
+    chapter: chapter,
+    verse: verse,
+    version: volume
+  };
 };
 
 /**
