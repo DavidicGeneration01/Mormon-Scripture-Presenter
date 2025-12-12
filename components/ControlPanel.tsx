@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Search, BookOpen, Settings, Info, History, MonitorPlay, Link as LinkIcon, PenTool, ChevronLeft, ChevronRight, Type } from 'lucide-react';
 import { VerseData, AIInsight, PresentationSettings, ThemeMode, HistoryItem } from '../types';
@@ -393,7 +392,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
       {/* Footer */}
       <div className="p-4 bg-gray-900 border-t border-gray-800 text-xs text-gray-600 text-center">
-        Powered by Gemini 2.5 Flash
+        Designed by David O. Alade
       </div>
     </div>
   );
