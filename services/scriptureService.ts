@@ -8,11 +8,11 @@ const BOOK_MAP: Record<string, string> = {
   'gn': 'genesis', 'gen': 'genesis', 'genesis': 'genesis',
   'ex': 'exodus', 'exo': 'exodus', 'exodus': 'exodus',
   'lev': 'leviticus', 'lv': 'leviticus', 'leviticus': 'leviticus',
-  'num': 'numbers', 'nm': 'numbers', 'numbers': 'numbers',
+  'num': 'numbers', 'nm': 'numbers', 'numb': 'numbers', 'numbers': 'numbers',
   'deut': 'deuteronomy', 'dt': 'deuteronomy', 'deuteronomy': 'deuteronomy',
   'josh': 'joshua', 'jos': 'joshua', 'joshua': 'joshua',
   'judg': 'judges', 'jdg': 'judges', 'judges': 'judges',
-  'ruth': 'ruth', 'ru': 'ruth',
+  'ruth': 'ruth', 'ru': 'ruth', 'rut': 'ruth',
   '1sam': '1 samuel', '1sm': '1 samuel', '1sa': '1 samuel', '1 samuel': '1 samuel',
   '2sam': '2 samuel', '2sm': '2 samuel', '2sa': '2 samuel', '2 samuel': '2 samuel',
   '1kgs': '1 kings', '1kg': '1 kings', '1ki': '1 kings', '1 kings': '1 kings',
@@ -21,11 +21,11 @@ const BOOK_MAP: Record<string, string> = {
   '2chr': '2 chronicles', '2ch': '2 chronicles', '2 chronicles': '2 chronicles',
   'ezra': 'ezra', 'ezr': 'ezra',
   'neh': 'nehemiah', 'ne': 'nehemiah', 'nehemiah': 'nehemiah',
-  'esth': 'esther', 'es': 'esther', 'esther': 'esther',
+  'esth': 'esther', 'es': 'esther', 'est': 'esther', 'esther': 'esther',
   'job': 'job', 'jb': 'job',
   'ps': 'psalms', 'psm': 'psalms', 'psalm': 'psalms', 'psalms': 'psalms',
-  'prov': 'proverbs', 'pr': 'proverbs', 'proverbs': 'proverbs',
-  'eccl': 'ecclesiastes', 'ec': 'ecclesiastes', 'ecclesiastes': 'ecclesiastes',
+  'prov': 'proverbs', 'pr': 'proverbs', 'pro': 'proverbs', 'proverbs': 'proverbs',
+  'eccl': 'ecclesiastes', 'ec': 'ecclesiastes', 'qoh': 'ecclesiastes', 'ecclesiastes': 'ecclesiastes',
   'song': 'song of solomon', 'sos': 'song of solomon', 'canticles': 'song of solomon', 'song of solomon': 'song of solomon',
   'isa': 'isaiah', 'is': 'isaiah', 'isaiah': 'isaiah',
   'jer': 'jeremiah', 'jr': 'jeremiah', 'jeremiah': 'jeremiah',
@@ -36,7 +36,7 @@ const BOOK_MAP: Record<string, string> = {
   'joel': 'joel', 'jl': 'joel',
   'amos': 'amos', 'am': 'amos',
   'obad': 'obadiah', 'ob': 'obadiah', 'obadiah': 'obadiah',
-  'jonah': 'jonah', 'jnh': 'jonah',
+  'jonah': 'jonah', 'jnh': 'jonah', 'jon': 'jonah',
   'mic': 'micah', 'mc': 'micah', 'micah': 'micah',
   'nah': 'nahum', 'na': 'nahum', 'nahum': 'nahum',
   'hab': 'habakkuk', 'hb': 'habakkuk', 'habakkuk': 'habakkuk',
@@ -46,11 +46,11 @@ const BOOK_MAP: Record<string, string> = {
   'mal': 'malachi', 'ml': 'malachi', 'malachi': 'malachi',
 
   // --- NEW TESTAMENT ---
-  'matt': 'matthew', 'mt': 'matthew', 'matthew': 'matthew',
-  'mk': 'mark', 'mrk': 'mark', 'mark': 'mark',
-  'lk': 'luke', 'luk': 'luke', 'luke': 'luke',
-  'jh': 'john', 'jn': 'john', 'jhn': 'john', 'john': 'john',
-  'acts': 'acts', 'ac': 'acts',
+  'matt': 'matthew', 'mt': 'matthew', 'mat': 'matthew', 'matthew': 'matthew',
+  'mk': 'mark', 'mrk': 'mark', 'mar': 'mark', 'mark': 'mark',
+  'lk': 'luke', 'luk': 'luke', 'lu': 'luke', 'luke': 'luke',
+  'jh': 'john', 'jn': 'john', 'jhn': 'john', 'joh': 'john', 'john': 'john',
+  'acts': 'acts', 'ac': 'acts', 'act': 'acts',
   'rom': 'romans', 'rm': 'romans', 'romans': 'romans',
   '1cor': '1 corinthians', '1co': '1 corinthians', '1 cor': '1 corinthians', '1 corinthians': '1 corinthians',
   '2cor': '2 corinthians', '2co': '2 corinthians', '2 cor': '2 corinthians', '2 corinthians': '2 corinthians',
@@ -64,14 +64,14 @@ const BOOK_MAP: Record<string, string> = {
   '2tim': '2 timothy', '2ti': '2 timothy', '2 tim': '2 timothy', '2 timothy': '2 timothy',
   'tit': 'titus', 'ti': 'titus', 'titus': 'titus',
   'phlm': 'philemon', 'phm': 'philemon', 'philemon': 'philemon',
-  'heb': 'hebrews', 'hebrews': 'hebrews',
+  'heb': 'hebrews', 'hebr': 'hebrews', 'hebrews': 'hebrews',
   'jam': 'james', 'jas': 'james', 'james': 'james',
   '1pet': '1 peter', '1pe': '1 peter', '1 peter': '1 peter',
   '2pet': '2 peter', '2pe': '2 peter', '2 peter': '2 peter',
   '1jn': '1 john', '1jo': '1 john', '1 john': '1 john',
   '2jn': '2 john', '2jo': '2 john', '2 john': '2 john',
   '3jn': '3 john', '3jo': '3 john', '3 john': '3 john',
-  'jude': 'jude', 'jd': 'jude',
+  'jude': 'jude', 'jd': 'jude', 'jud': 'jude',
   'rev': 'revelation', 'rv': 'revelation', 'revelation': 'revelation',
   
   // --- BOOK OF MORMON ---
@@ -149,12 +149,14 @@ const parseQuery = (query: string) => {
     .replace(/\s*-\s*/g, '-')
     .replace(/&/g, 'and'); // Handle ampersands
 
-  // Regex: 
+  // Regex Update: 
   // 1. Optional leading digits (e.g. "1" in "1 Nephi")
-  // 2. Book text including chars, &, spaces, and hyphens
-  // 3. Chapter number
-  // 4. Verse number
-  const regex = /^(\d*)?\s*([a-z&\s-]+?)\s+(\d+)[:.\s]*(\d+)$/;
+  // 2. Book text including chars, &, spaces, and hyphens (Lazy match)
+  // 3. Optional Space
+  // 4. Chapter number
+  // 5. Verse number
+  // Changed \s+ to \s* between group 2 and 3 to handle "Mat4:5"
+  const regex = /^(\d*)?\s*([a-z&\s-]+?)\s*(\d+)[:.\s]*(\d+)$/;
   const match = clean.match(regex);
   if (!match) return null;
 
