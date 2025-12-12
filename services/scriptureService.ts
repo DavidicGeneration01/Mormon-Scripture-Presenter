@@ -2,41 +2,107 @@ import { VerseData } from '../types';
 import { searchVerse as searchVerseAI } from './geminiService';
 
 // --- Abbreviation Mapping ---
+// Comprehensive list ensuring at least 2 abbreviations for every book in the Standard Works
 const BOOK_MAP: Record<string, string> = {
-  // Bible
+  // --- OLD TESTAMENT ---
   'gn': 'genesis', 'gen': 'genesis', 'genesis': 'genesis',
-  'ex': 'exodus', 'exodus': 'exodus',
+  'ex': 'exodus', 'exo': 'exodus', 'exodus': 'exodus',
+  'lev': 'leviticus', 'lv': 'leviticus', 'leviticus': 'leviticus',
+  'num': 'numbers', 'nm': 'numbers', 'numbers': 'numbers',
+  'deut': 'deuteronomy', 'dt': 'deuteronomy', 'deuteronomy': 'deuteronomy',
+  'josh': 'joshua', 'jos': 'joshua', 'joshua': 'joshua',
+  'judg': 'judges', 'jdg': 'judges', 'judges': 'judges',
+  'ruth': 'ruth', 'ru': 'ruth',
+  '1sam': '1 samuel', '1sm': '1 samuel', '1sa': '1 samuel', '1 samuel': '1 samuel',
+  '2sam': '2 samuel', '2sm': '2 samuel', '2sa': '2 samuel', '2 samuel': '2 samuel',
+  '1kgs': '1 kings', '1kg': '1 kings', '1ki': '1 kings', '1 kings': '1 kings',
+  '2kgs': '2 kings', '2kg': '2 kings', '2ki': '2 kings', '2 kings': '2 kings',
+  '1chr': '1 chronicles', '1ch': '1 chronicles', '1 chronicles': '1 chronicles',
+  '2chr': '2 chronicles', '2ch': '2 chronicles', '2 chronicles': '2 chronicles',
+  'ezra': 'ezra', 'ezr': 'ezra',
+  'neh': 'nehemiah', 'ne': 'nehemiah', 'nehemiah': 'nehemiah',
+  'esth': 'esther', 'es': 'esther', 'esther': 'esther',
+  'job': 'job', 'jb': 'job',
   'ps': 'psalms', 'psm': 'psalms', 'psalm': 'psalms', 'psalms': 'psalms',
+  'prov': 'proverbs', 'pr': 'proverbs', 'proverbs': 'proverbs',
+  'eccl': 'ecclesiastes', 'ec': 'ecclesiastes', 'ecclesiastes': 'ecclesiastes',
+  'song': 'song of solomon', 'sos': 'song of solomon', 'canticles': 'song of solomon', 'song of solomon': 'song of solomon',
+  'isa': 'isaiah', 'is': 'isaiah', 'isaiah': 'isaiah',
+  'jer': 'jeremiah', 'jr': 'jeremiah', 'jeremiah': 'jeremiah',
+  'lam': 'lamentations', 'lm': 'lamentations', 'lamentations': 'lamentations',
+  'ezek': 'ezekiel', 'ez': 'ezekiel', 'ezekiel': 'ezekiel',
+  'dan': 'daniel', 'dn': 'daniel', 'daniel': 'daniel',
+  'hos': 'hosea', 'ho': 'hosea', 'hosea': 'hosea',
+  'joel': 'joel', 'jl': 'joel',
+  'amos': 'amos', 'am': 'amos',
+  'obad': 'obadiah', 'ob': 'obadiah', 'obadiah': 'obadiah',
+  'jonah': 'jonah', 'jnh': 'jonah',
+  'mic': 'micah', 'mc': 'micah', 'micah': 'micah',
+  'nah': 'nahum', 'na': 'nahum', 'nahum': 'nahum',
+  'hab': 'habakkuk', 'hb': 'habakkuk', 'habakkuk': 'habakkuk',
+  'zeph': 'zephaniah', 'zp': 'zephaniah', 'zephaniah': 'zephaniah',
+  'hag': 'haggai', 'hg': 'haggai', 'haggai': 'haggai',
+  'zech': 'zechariah', 'zc': 'zechariah', 'zechariah': 'zechariah',
+  'mal': 'malachi', 'ml': 'malachi', 'malachi': 'malachi',
+
+  // --- NEW TESTAMENT ---
   'matt': 'matthew', 'mt': 'matthew', 'matthew': 'matthew',
-  'mk': 'mark', 'mark': 'mark',
-  'lk': 'luke', 'luke': 'luke',
-  'jh': 'john', 'jn': 'john', 'john': 'john',
-  'rom': 'romans', 'romans': 'romans',
-  '1cor': '1 corinthians', '1_cor': '1 corinthians', '1 cor': '1 corinthians',
+  'mk': 'mark', 'mrk': 'mark', 'mark': 'mark',
+  'lk': 'luke', 'luk': 'luke', 'luke': 'luke',
+  'jh': 'john', 'jn': 'john', 'jhn': 'john', 'john': 'john',
+  'acts': 'acts', 'ac': 'acts',
+  'rom': 'romans', 'rm': 'romans', 'romans': 'romans',
+  '1cor': '1 corinthians', '1co': '1 corinthians', '1 cor': '1 corinthians', '1 corinthians': '1 corinthians',
+  '2cor': '2 corinthians', '2co': '2 corinthians', '2 cor': '2 corinthians', '2 corinthians': '2 corinthians',
+  'gal': 'galatians', 'ga': 'galatians', 'galatians': 'galatians',
+  'eph': 'ephesians', 'ep': 'ephesians', 'ephesians': 'ephesians',
+  'phil': 'philippians', 'php': 'philippians', 'philippians': 'philippians',
+  'col': 'colossians', 'cl': 'colossians', 'colossians': 'colossians',
+  '1thess': '1 thessalonians', '1th': '1 thessalonians', '1 thess': '1 thessalonians', '1 thessalonians': '1 thessalonians',
+  '2thess': '2 thessalonians', '2th': '2 thessalonians', '2 thess': '2 thessalonians', '2 thessalonians': '2 thessalonians',
+  '1tim': '1 timothy', '1ti': '1 timothy', '1 tim': '1 timothy', '1 timothy': '1 timothy',
+  '2tim': '2 timothy', '2ti': '2 timothy', '2 tim': '2 timothy', '2 timothy': '2 timothy',
+  'tit': 'titus', 'ti': 'titus', 'titus': 'titus',
+  'phlm': 'philemon', 'phm': 'philemon', 'philemon': 'philemon',
+  'heb': 'hebrews', 'hebrews': 'hebrews',
   'jam': 'james', 'jas': 'james', 'james': 'james',
+  '1pet': '1 peter', '1pe': '1 peter', '1 peter': '1 peter',
+  '2pet': '2 peter', '2pe': '2 peter', '2 peter': '2 peter',
+  '1jn': '1 john', '1jo': '1 john', '1 john': '1 john',
+  '2jn': '2 john', '2jo': '2 john', '2 john': '2 john',
+  '3jn': '3 john', '3jo': '3 john', '3 john': '3 john',
+  'jude': 'jude', 'jd': 'jude',
+  'rev': 'revelation', 'rv': 'revelation', 'revelation': 'revelation',
   
-  // Book of Mormon
-  '1ne': '1 nephi', '1_ne': '1 nephi', '1nephi': '1 nephi',
-  '2ne': '2 nephi', '2_ne': '2 nephi', '2nephi': '2 nephi',
-  'jac': 'jacob', 'jacob': 'jacob',
-  'enos': 'enos',
+  // --- BOOK OF MORMON ---
+  '1ne': '1 nephi', '1_ne': '1 nephi', '1nephi': '1 nephi', '1 nephi': '1 nephi',
+  '2ne': '2 nephi', '2_ne': '2 nephi', '2nephi': '2 nephi', '2 nephi': '2 nephi',
+  'jac': 'jacob', 'jacob': 'jacob', 'jc': 'jacob',
+  'enos': 'enos', 'en': 'enos',
+  'jarom': 'jarom', 'jar': 'jarom',
+  'omni': 'omni', 'om': 'omni',
+  'wom': 'words of mormon', 'wofm': 'words of mormon', 'words': 'words of mormon', 'words of mormon': 'words of mormon',
   'mos': 'mosiah', 'mosiah': 'mosiah',
   'al': 'alma', 'alma': 'alma',
-  'hel': 'helaman', 'helaman': 'helaman',
-  '3ne': '3 nephi', '3_ne': '3 nephi', '3nephi': '3 nephi',
-  '4ne': '4 nephi', '4_ne': '4 nephi', '4nephi': '4 nephi',
+  'hel': 'helaman', 'helaman': 'helaman', 'he': 'helaman',
+  '3ne': '3 nephi', '3_ne': '3 nephi', '3nephi': '3 nephi', '3 nephi': '3 nephi',
+  '4ne': '4 nephi', '4_ne': '4 nephi', '4nephi': '4 nephi', '4 nephi': '4 nephi',
+  'morm': 'mormon', 'mormon': 'mormon', 'mrm': 'mormon',
   'eth': 'ether', 'ether': 'ether',
   'moro': 'moroni', 'moroni': 'moroni',
 
-  // D&C / PGP
-  'dc': 'doctrine and covenants', 'd&c': 'doctrine and covenants', 'doc': 'doctrine and covenants',
-  'moses': 'moses',
-  'abr': 'abraham', 'abraham': 'abraham',
-  'aof': 'articles of faith', 'art': 'articles of faith',
-  
-  // Pearl of Great Price - Joseph Smith
+  // --- DOCTRINE AND COVENANTS ---
+  'dc': 'doctrine and covenants', 
+  'd&c': 'doctrine and covenants', 
+  'doc': 'doctrine and covenants',
+  'doctrine and covenants': 'doctrine and covenants',
+
+  // --- PEARL OF GREAT PRICE ---
+  'moses': 'moses', 'mse': 'moses',
+  'abr': 'abraham', 'abraham': 'abraham', 'ab': 'abraham',
   'jsm': 'joseph smith-matthew', 'js-m': 'joseph smith-matthew', 'joseph smith-matthew': 'joseph smith-matthew', 'joseph smith-mathew': 'joseph smith-matthew',
-  'jsh': 'joseph smith-history', 'js-h': 'joseph smith-history', 'joseph smith-history': 'joseph smith-history'
+  'jsh': 'joseph smith-history', 'js-h': 'joseph smith-history', 'joseph smith-history': 'joseph smith-history',
+  'aof': 'articles of faith', 'art': 'articles of faith', 'articles': 'articles of faith', 'articles of faith': 'articles of faith'
 };
 
 // --- In-Memory Cache for External LDS Data ---
@@ -76,10 +142,16 @@ const OFFLINE_LIBRARY: Record<string, VerseData> = {
  * Advanced Parsing Logic
  */
 const parseQuery = (query: string) => {
-  const clean = query.trim().toLowerCase();
+  // Pre-sanitize: lower case, replace em-dashes/en-dashes with hyphen, collapse spaces around dashes
+  // This allows "Joseph Smith - Matthew" or "Joseph Smith—Matthew" to become "joseph smith-matthew"
+  const clean = query.trim().toLowerCase()
+    .replace(/[—–]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/&/g, 'and'); // Handle ampersands
+
   // Regex: 
   // 1. Optional leading digits (e.g. "1" in "1 Nephi")
-  // 2. Book text including spaces/hyphens/ampersands (Lazy match to avoid eating chapter number)
+  // 2. Book text including chars, &, spaces, and hyphens
   // 3. Chapter number
   // 4. Verse number
   const regex = /^(\d*)?\s*([a-z&\s-]+?)\s+(\d+)[:.\s]*(\d+)$/;
@@ -134,7 +206,7 @@ const fetchLdsScripture = async (book: string, chapter: number, verse: number): 
   let volume = '';
 
   // Determine volume based on book name
-  if (book.includes('nephi') || book.includes('mosiah') || book.includes('alma') || book.includes('helaman') || book.includes('ether') || book.includes('moroni') || book.includes('jacob') || book.includes('enos') || book.includes('jarom') || book.includes('omni') || book.includes('mormon')) {
+  if (book.includes('nephi') || book.includes('mosiah') || book.includes('alma') || book.includes('helaman') || book.includes('ether') || book.includes('moroni') || book.includes('jacob') || book.includes('enos') || book.includes('jarom') || book.includes('omni') || book.includes('words of mormon') || book.includes('mormon')) {
     volume = 'Book of Mormon';
     url = 'https://raw.githubusercontent.com/bcbooks/scriptures-json/master/book-of-mormon.json';
     cache = bomCache;
@@ -168,21 +240,32 @@ const fetchLdsScripture = async (book: string, chapter: number, verse: number): 
   let chapters: any[] | undefined;
   let bookTitle = book; // Default title
 
-  // Helper to handle Em-dash vs Hyphen vs En-dash
-  const normalizeTitle = (t: string) => t.toLowerCase().replace(/[—–]/g, '-').trim();
+  // Helper to handle Em-dash vs Hyphen vs En-dash AND spaces around them
+  // This matches the cleanup done in parseQuery, ensuring database keys match search keys
+  const normalizeTitle = (t: string) => t.toLowerCase()
+    .replace(/[—–]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/&/g, 'and')
+    .trim();
 
   // 1. Try finding within "books" array (Standard format)
   if (cache.books && Array.isArray(cache.books)) {
-    // Robust find: ignore case, ignore dash type
-    const bookData = cache.books.find((b: any) => normalizeTitle(b.book) === normalizeTitle(book) || normalizeTitle(b.book).includes(normalizeTitle(book)));
+    // Robust find: ignore case, ignore dash type, check for inclusion (e.g. "Joseph Smith-Matthew" vs "Joseph Smith—Matthew")
+    const bookData = cache.books.find((b: any) => {
+        const dbBook = normalizeTitle(b.book);
+        const searchBook = normalizeTitle(book);
+        return dbBook === searchBook || dbBook.includes(searchBook) || searchBook.includes(dbBook);
+    });
     
     if (bookData) {
         // Exact book match found
         chapters = bookData.chapters;
         bookTitle = bookData.book;
     } else if (volume === 'D&C') {
-        // Special Case: D&C might be the only book in the array
-        if (cache.books.length === 1) {
+        // Fallback: If we couldn't match name (e.g. "Doctrine and Covenants" vs "D&C"), but volume is D&C.
+        // D&C JSON often contains "Doctrine and Covenants", "OD1", "OD2". 
+        // We default to the first book if available, as it is invariably D&C.
+        if (cache.books.length > 0) {
              chapters = cache.books[0].chapters;
              bookTitle = cache.books[0].book;
         }
@@ -266,7 +349,8 @@ export const findScripture = async (query: string): Promise<VerseData> => {
     try {
       const bibleBooks = ['matthew','mark','luke','john','acts','romans','corinthians','galatians','ephesians','philippians','colossians','thessalonians','timothy','titus','philemon','hebrews','james','peter','jude','revelation','genesis','exodus','leviticus','numbers','deuteronomy','joshua','judges','ruth','samuel','kings','chronicles','ezra','nehemiah','esther','job','psalms','proverbs','ecclesiastes','solomon','isaiah','jeremiah','lamentations','ezekiel','daniel','hosea','joel','amos','obadiah','jonah','micah','nahum','habakkuk','zephaniah','haggai','zechariah','malachi'];
       
-      // Is it Bible? (Explicitly exclude Joseph Smith translations which might contain 'matthew')
+      // Is it Bible? (Explicitly exclude Joseph Smith translations which might contain 'matthew' or 'history' to avoid conflict)
+      // Check if book is standard bible AND doesn't start with 'joseph smith'
       if (bibleBooks.some(b => parsed.book.includes(b)) && !parsed.book.includes('joseph smith')) {
          return await fetchFromBibleApi(parsed.book, parsed.chapter, parsed.verse);
       }
